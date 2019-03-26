@@ -80,21 +80,22 @@ void main() {
           },
         );
 
-        final http.Request capt = verify(mockHttpClient.send(captureAny))
+        final dynamic captured = verify(mockHttpClient.send(captureAny))
             .captured
-            .first as http.Request;
-        expect(capt.method, 'post');
-        expect(capt.url.toString(), 'https://api.github.com/graphql');
+            .first;
+        expect(captured, isA<http.Request>());
+        http.Request request = captured as http.Request;
+        expect(request.method, 'post');
+        expect(request.url.toString(), 'https://api.github.com/graphql');
         expect(
-          capt.headers,
+          request.headers,
           <String, String>{
-//            'accept': '*/*',
-            // @todo should be json
-            'content-type': 'text/plain; charset=utf-8',
+            'accept': '*/*',
+            'content-type': 'application/json; charset=utf-8',
             'Authorization': 'bearer my-special-bearer-token',
           },
         );
-        expect(await capt.finalize().bytesToString(),
+        expect(await request.finalize().bytesToString(),
             r'{"operationName":"ReadRepositories","variables":{"nRepositories":42},"query":"query ReadRepositories ($nRepositories: Int!) { viewer { repositories (last: $nRepositories) { nodes { __typename  id  name  viewerHasStarred   }  }  } }\n"}');
 
         // expect(queryRes.errors, isNull);

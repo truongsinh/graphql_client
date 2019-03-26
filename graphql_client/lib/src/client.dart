@@ -47,7 +47,7 @@ class GQLClient {
       {Map variables = const <String, dynamic>{},
       Map<String, String> headers}) async {
     try {
-      final requestBody = {
+      final requestBody = <String, dynamic>{
         'operationName': operation.name,
         'variables': variables,
         'query': GRAPHQL.encode(operation),
@@ -61,6 +61,10 @@ class GQLClient {
 
 
       final Request httpReq = Request('post', Uri.parse(endPoint));
+      httpReq.headers.addAll(<String, String>{
+        'accept': '*/*',
+        'content-type': 'application/json; charset=utf-8',
+      });
       httpReq.headers.addAll(headers);
       httpReq.body = json.encode(requestBody);
 
