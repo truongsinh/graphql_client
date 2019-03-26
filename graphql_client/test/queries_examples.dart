@@ -53,10 +53,42 @@ class ReadRepositoriesQuery extends Object
   String get args => '\$nRepositories: Int!';
 }
 
+const String addStar = r'''
+  mutation AddStar($starrableId: ID!) {
+    action: addStar(input: {starrableId: $starrableId}) {
+      starrable {
+        viewerHasStarred
+      }
+    }
+  }
+''';
+
+class AddStarMutation extends Object
+    with Arguments, Fields
+    implements GQLOperation {
+  ActionMutation action = ActionMutation();
+
+  @override
+  String get type => mutationType;
+
+  @override
+  String get name => 'AddStar';
+
+  @override
+  String get args => '\$starrableId: ID!';
+
+  @override
+  List<GQLField> get fields => [action];
+
+  @override
+  AddStarMutation clone() =>
+      AddStarMutation()..action = action.clone();
+}
+
 class AddTestCommentMutation extends Object
     with Arguments, Fields
     implements GQLOperation {
-  AddCommentMutation addComment = AddCommentMutation();
+  ActionMutation addComment = ActionMutation();
 
   @override
   String get type => mutationType;
@@ -113,40 +145,39 @@ class GistDescriptiveFragment extends GistDescriptiveFragmentResolver
  * ************************
  */
 
-class AddCommentMutation extends Object
-    with Arguments, Fields
+class ActionMutation extends Object
+    with Fields
     implements GQLField {
   CommentEdgeResolver commentEdge = CommentEdgeResolver();
 
   @override
-  String get name => 'addComment';
-
-  @override
-  String get args => 'input: {subjectId: \$issueId, body: \$body}';
+  String get name => 'action';
 
   @override
   List<GQLField> get fields => [commentEdge];
 
   @override
-  AddCommentMutation clone() =>
-      AddCommentMutation()..commentEdge = commentEdge.clone();
+  ActionMutation clone() =>
+      ActionMutation()..commentEdge = commentEdge.clone();
 }
 
 class CommentEdgeResolver extends Object
-    with Alias, Fields
+    with Arguments, Fields
     implements GQLField {
-  NodeResolver node = NodeResolver();
+  ViewerHasStarredResolver viewerHasStarred = ViewerHasStarredResolver();
 
   @override
-  String get name => 'commentEdge';
+  String get args => r'input: {starrableId: $starrableId}';
 
   @override
-  List<GQLField> get fields => [node];
+  String get name => 'starrable';
+
+  @override
+  List<GQLField> get fields => [viewerHasStarred];
 
   @override
   CommentEdgeResolver clone() => CommentEdgeResolver()
-    ..aliasId = aliasId
-    ..node = node.clone();
+    ..viewerHasStarred = viewerHasStarred.clone();
 }
 
 class NodeResolver extends Object with Fields, Alias implements GQLField {
@@ -374,6 +405,15 @@ class LoginResolver extends Object
   LoginResolver clone() => LoginResolver()..aliasId = aliasId;
 }
 
+class ViewerHasStarredResolver extends Object
+    with Scalar<bool>
+    implements GQLField {
+  @override
+  String get name => 'viewerHasStarred';
+
+  @override
+  ViewerHasStarredResolver clone() => ViewerHasStarredResolver();
+}
 class BioResolver extends Object
     with Scalar<String>, Alias
     implements GQLField {

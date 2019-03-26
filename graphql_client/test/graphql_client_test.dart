@@ -72,6 +72,7 @@ void main() {
 
         final ReadRepositoriesQuery queryRes = await graphQLClient.execute(
           ReadRepositoriesQuery(),
+          // @todo type-sfe
           variables: <String, dynamic>{
             'nRepositories': 42,
           },
@@ -98,6 +99,7 @@ void main() {
         expect(await request.finalize().bytesToString(),
             r'{"operationName":"ReadRepositories","variables":{"nRepositories":42},"query":"query ReadRepositories ($nRepositories: Int!) { viewer { repositories (last: $nRepositories) { nodes { __typename  id  name  viewerHasStarred   }  }  } }\n"}');
 
+        // @todo errors should be value, not excpetion
         // expect(queryRes.errors, isNull);
         // expect(queryRes.data, isNotNull);
         expect(queryRes.viewer, isNotNull);
@@ -113,60 +115,55 @@ void main() {
 //    test('failed query because of because of error response', {});
 //    test('failed query because of because of invalid response', {});
     });
-//    group('mutation', () {
-//      const String addStar = r'''
-//  mutation AddStar($starrableId: ID!) {
-//    action: addStar(input: {starrableId: $starrableId}) {
-//      starrable {
-//        viewerHasStarred
-//      }
-//    }
-//  }
-//''';
-//      test('successful mutation', () async {
-//        final MutationOptions _options = MutationOptions(
-//          document: addStar,
-//          variables: <String, dynamic>{
-//            'nRepositories': 38,
-//          },
-//        );
-//        when(mockHttpClient.send(any)).thenAnswer((Invocation a) async {
-//          const String body =
-//              '{"data":{"action":{"starrable":{"viewerHasStarred":true}}}}';
-//
-//          final List<int> bytes = utf8.encode(body);
-//          final Stream<List<int>> stream =
-//          Stream<List<int>>.fromIterable(<List<int>>[bytes]);
-//
-//          final http.StreamedResponse r = http.StreamedResponse(stream, 200);
-//          return r;
-//        });
-//
-//        final QueryResult response = await graphQLClientClient.mutate(_options);
-//
-//        final http.Request request = verify(mockHttpClient.send(captureAny))
-//            .captured
-//            .first as http.Request;
-//        expect(request.method, 'post');
-//        expect(request.url.toString(), 'https://api.github.com/graphql');
-//        expect(
-//          request.headers,
-//          <String, String>{
-//            'accept': '*/*',
-//            'content-type': 'application/json; charset=utf-8',
-//            'Authorization': 'Bearer my-special-bearer-token',
-//          },
-//        );
-//        expect(await request.finalize().bytesToString(),
-//            r'{"operationName":"AddStar","variables":{"nRepositories":38},"query":"  mutation AddStar($starrableId: ID!) {\n    action: addStar(input: {starrableId: $starrableId}) {\n      starrable {\n        viewerHasStarred\n      }\n    }\n  }\n"}');
-//
+    group('mutation', () {
+      test('successful mutation', () async {
+        when(mockHttpClient.send(any)).thenAnswer((Invocation a) async {
+          const String body =
+              '{"data":{"action":{"starrable":{"viewerHasStarred":true}}}}';
+
+          final List<int> bytes = utf8.encode(body);
+          final Stream<List<int>> stream =
+          Stream<List<int>>.fromIterable(<List<int>>[bytes]);
+
+          final http.StreamedResponse r = http.StreamedResponse(stream, 200);
+          return r;
+        });
+
+        final AddStarMutation queryRes = await graphQLClient.execute(
+          AddStarMutation(),
+          // @todo type-sfe
+          variables: <String, dynamic>{
+            'nRepositories': 38,
+          },
+          headers: <String, String>{
+            'Authorization': 'bearer $apiToken',
+          },
+        );
+
+        final http.Request request = verify(mockHttpClient.send(captureAny))
+            .captured
+            .first as http.Request;
+        expect(request.method, 'post');
+        expect(request.url.toString(), 'https://api.github.com/graphql');
+        expect(
+          request.headers,
+          <String, String>{
+            'accept': '*/*',
+            'content-type': 'application/json; charset=utf-8',
+            'Authorization': 'bearer my-special-bearer-token',
+          },
+        );
+
+        expect(await request.finalize().bytesToString(),
+            r'{"operationName":"AddStar","variables":{"nRepositories":38},"query":"mutation AddStar ($starrableId: ID!) { action: addStar(input: {starrableId: $starrableId}) {\n      starrable {\n        viewerHasStarred\n      }\n    }\n  }\n"}');
+
 //        expect(response.errors, isNull);
 //        expect(response.data, isNotNull);
 //        final bool viewerHasStarred =
 //        response.data['action']['starrable']['viewerHasStarred'] as bool;
 //        expect(viewerHasStarred, true);
-//      });
-//    });
+      });
+    });
 //  });
 //
 //  group('upload', () {
