@@ -24,16 +24,16 @@ Future main() async {
   const endPoint = 'https://api.github.com/graphql';
   final apiToken = Platform.environment['GQL_GITHUB_TOKEN'];
 
-  final client = new Client();
-  final logger = new Logger('GQLClient');
-  final graphQLClient = new GQLClient(
+  final client = Client();
+  final logger = Logger('GQLClient');
+  final graphQLClient = GQLClient(
     client: client,
     logger: logger,
     endPoint: endPoint,
   );
 
-  final query = new LoginQuery();
-  final mutation = new AddTestCommentMutation();
+  final query = LoginQuery();
+  final mutation = AddTestCommentMutation();
 
   try {
     print('\n\n===================== TEST 1 =====================');

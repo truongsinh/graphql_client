@@ -100,7 +100,7 @@ class GQLClient {
     final reasonPhrase = response.reasonPhrase;
 
     if (statusCode < 200 || statusCode >= 400) {
-      throw new ClientException('Network Error: $statusCode $reasonPhrase');
+      throw ClientException('Network Error: $statusCode $reasonPhrase');
     }
 
     final dynamic jsonResponse = json.decode(response.body);
@@ -151,7 +151,7 @@ class GQLClient {
 
   void _resolve(GQLField resolver, Map data) {
     final key = (resolver is Alias) ? resolver.alias : resolver.name;
-    final fieldData = data[key] as Map;
+    final dynamic fieldData = data[key];
 
     if (resolver is Scalar) {
       resolver.value = fieldData;
@@ -169,20 +169,20 @@ class GQLClient {
             List.generate(nodesData.length, (_) => nodeResolver.clone());
 
         for (int i = 0; i < nodesData.length; i++) {
-          _resolveQuery(resolver.nodes[i], nodesData[i] as Map);
+          _resolveQuery(resolver.nodes[i], nodesData[i]);
         }
       }
 
       if (edgeResolver != null) {
         resolver.edges =
-            new List.generate(edgesData.length, (_) => edgeResolver.clone());
+            List.generate(edgesData.length, (_) => edgeResolver.clone());
 
         for (var i = 0; i < edgesData.length; i++) {
           _resolveQuery(resolver.edges[i], edgesData[i]);
         }
       }
     } else {
-      _resolveQuery(resolver, fieldData);
+      _resolveQuery(resolver, fieldData as Map);
     }
   }
 }
