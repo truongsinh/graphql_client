@@ -6,8 +6,10 @@ library graphql_client.client;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart';
+import 'package:http_parser/http_parser.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 
@@ -46,9 +48,9 @@ class GQLClient {
       Map<String, String> headers}) async {
     try {
       final requestBody = {
-        'query': GRAPHQL.encode(operation),
-        'variables': variables,
         'operationName': operation.name,
+        'variables': variables,
+        'query': GRAPHQL.encode(operation),
       };
 
       logMessage(
@@ -57,13 +59,15 @@ class GQLClient {
           logger);
       logMessage(Level.FINE, 'with body GQL request to $requestBody', logger);
 
-      final res = await client.post(
-        endPoint,
-        headers: headers,
-        body: json.encode(requestBody),
-      );
 
-      final data = _parseResponse(res);
+      final Request httpReq = Request('post', Uri.parse(endPoint));
+      httpReq.headers.addAll(headers);
+      httpReq.body = json.encode(requestBody);
+
+      final StreamedResponse res = await client.send(httpReq);
+
+      final data = await _parseResponse(res);
+      assert(data != null);
 
       logMessage(Level.INFO, 'Receive response', logger);
       logMessage(Level.FINE, 'with body $data', logger);
@@ -95,7 +99,7 @@ class GQLClient {
     return execute<T>(operation, headers: headers, variables: variables);
   }
 
-  Map _parseResponse(Response response) {
+  Future<Map> _parseResponse(StreamedResponse response) async {
     final statusCode = response.statusCode;
     final reasonPhrase = response.reasonPhrase;
 
@@ -103,8 +107,12 @@ class GQLClient {
       throw ClientException('Network Error: $statusCode $reasonPhrase');
     }
 
-    final dynamic jsonResponse = json.decode(response.body);
-    if (!(jsonResponse is Map)) {
+    // @todo limit bodyBytes
+    final Encoding encoding = _determineEncodingFromResponse(response);
+    final Uint8List responseByte = await response.stream.toBytes();
+    final String decodedBody = encoding.decode(responseByte);
+    final dynamic jsonResponse = json.decode(decodedBody);
+    if (jsonResponse is! Map) {
       // @todo more debug data
       throw Exception('Malformed response from server');
     }
@@ -112,15 +120,16 @@ class GQLClient {
     if (jsonResponse['errors'] != null) {
       final dynamic errors = jsonResponse['errors'];
       if (errors is List) {
-        throw GQLException('Error returned by the server in the query', errors.cast<Map>());
+        throw GQLException(
+            'Error returned by the server in the query', errors.cast<Map>());
       }
       // @todo more debug data
       throw Exception('Malformed response from server');
     }
 
-    if(jsonResponse['data'] != null) {
+    if (jsonResponse['data'] != null) {
       final dynamic data = jsonResponse['data'];
-      if(data is Map) {
+      if (data is Map) {
         return data;
       }
     }
@@ -129,11 +138,13 @@ class GQLClient {
   }
 
   void _resolveQuery(GQLField operation, Map data) {
+    assert(data != null);
     _resolveFields(operation, data);
     _resolveFragments(operation, data);
   }
 
   void _resolveFields(GQLField operation, Map data) {
+    assert(data != null);
     if (operation is Fields) {
       for (var field in operation.fields) {
         _resolve(field, data);
@@ -142,6 +153,7 @@ class GQLClient {
   }
 
   void _resolveFragments(GQLField operation, Map data) {
+    assert(data != null);
     if (operation is Fragments) {
       for (var fragment in operation.fragments) {
         _resolveFields(fragment, data);
@@ -155,11 +167,11 @@ class GQLClient {
 
     if (resolver is Scalar) {
       resolver.value = fieldData;
-    } else if (resolver is ScalarCollection) {
+    } else if (fieldData != null && resolver is ScalarCollection) {
       final nodeResolver = resolver.nodesResolver;
       final edgeResolver = resolver.edgesResolver;
-      final nodesData = fieldData['nodes'] as List<Map>;
-      final edgesData = fieldData['edges'] as List<Map>;
+      final nodesData = (fieldData['nodes'] as List<dynamic>);
+      final edgesData = (fieldData['edges'] as List<dynamic>);
       final totalCountData = fieldData['totalCount'] as int;
 
       resolver.totalCount = totalCountData;
@@ -169,7 +181,10 @@ class GQLClient {
             List.generate(nodesData.length, (_) => nodeResolver.clone());
 
         for (int i = 0; i < nodesData.length; i++) {
-          _resolveQuery(resolver.nodes[i], nodesData[i]);
+          final data = nodesData[i] as Map;
+          assert(data != null);
+          final rNodes = resolver.nodes[i];
+          _resolveQuery(rNodes, data);
         }
       }
 
@@ -178,11 +193,41 @@ class GQLClient {
             List.generate(edgesData.length, (_) => edgeResolver.clone());
 
         for (var i = 0; i < edgesData.length; i++) {
-          _resolveQuery(resolver.edges[i], edgesData[i]);
+          final data = edgesData[i] as Map;
+          assert(data != null);
+          _resolveQuery(resolver.edges[i], data);
         }
       }
+    } else if (fieldData != null && fieldData is Map && resolver is Fields) {
+        _resolveQuery(resolver, fieldData);
     } else {
-      _resolveQuery(resolver, fieldData as Map);
+      throw Exception('nooooo');
+      // @todo what else
     }
   }
+}
+
+/// Returns the charset encoding for the given response.
+///
+/// The default fallback encoding is set to UTF-8 according to the IETF RFC4627 standard
+/// which specifies the application/json media type:
+///   "JSON text SHALL be encoded in Unicode. The default encoding is UTF-8."
+Encoding _determineEncodingFromResponse(BaseResponse response,
+    [Encoding fallback = utf8]) {
+  final String contentType = response.headers['content-type'];
+
+  if (contentType == null) {
+    return fallback;
+  }
+
+  final MediaType mediaType = MediaType.parse(contentType);
+  final String charset = mediaType.parameters['charset'];
+
+  if (charset == null) {
+    return fallback;
+  }
+
+  final Encoding encoding = Encoding.getByName(charset);
+
+  return encoding == null ? fallback : encoding;
 }

@@ -61,7 +61,8 @@ Future main() async {
     print(queryRes.viewer.gist.description.value);
 
     print('=== .repositories ===');
-    for (var n in queryRes.viewer.repositories.nodes) {
+    // @todo better if we don't have to cast here
+    for (var n in queryRes.viewer.repositories.nodes.cast<NodesResolver>()) {
       print(n.repoName.value);
     }
   } on GQLException catch (e) {
